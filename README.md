@@ -11,7 +11,7 @@ Zhongguo Li, Magnus Oskarsson, and Anders Heyden.
 This repo is modified based on the method called [SPIN](https://github.com/nkolot/SPIN). If you want to run the code, you need to install depandencies and download the necessary data according to the installation instruction from the repo. 
 
 # Demo
-We provide a demo code for demonstrate the performance of our method. You can download the pre-trained model [here]. The person in the image should be in the center and cropped tightly. If you can provide the bounding box as the example in a pkl file, our demo still works. The bounding box is detected by CornerNet in our example.
+We provide a demo code for demonstrate the performance of our method. You can download the pre-trained model [here](https://drive.google.com/drive/folders/1kvpEyzXz8k5vhmLQnlLzQD7Qf-xvjY_T?usp=sharing). The person in the image should be in the center and cropped tightly. If you can provide the bounding box as the example in a pkl file, our demo still works. The bounding box is detected by CornerNet in our example.
 Therefore, we provide two ways to run the demo.
 1. Only test image in which the person is in the center and cropped tightly.
 ```
