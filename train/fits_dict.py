@@ -18,11 +18,11 @@ class FitsDict():
         # Load dictionary state
         for ds_name, ds in train_dataset.dataset_dict.items():
             try:
-                dict_file = os.path.join(options.checkpoint_dir, ds_name + '_fits.npy')
+                dict_file = os.path.join(options.checkpoint_dir, ds_name + '_fits_mv.npy')
                 self.fits_dict[ds_name] = torch.from_numpy(np.load(dict_file))
             except IOError:
                 # Dictionary does not exist, so populate with static fits
-                dict_file = os.path.join(config.STATIC_FITS_DIR, ds_name + '_fits.npy')
+                dict_file = os.path.join(config.STATIC_FITS_DIR, ds_name + '_fits_mv.npy')
                 self.fits_dict[ds_name] = torch.from_numpy(np.load(dict_file))
 
     def save(self):
@@ -37,14 +37,19 @@ class FitsDict():
         batch_size = len(dataset_name)
         pose = torch.zeros((batch_size, 72))
         betas = torch.zeros((batch_size, 10))
+        
         for ds, i, n in zip(dataset_name, ind, range(batch_size)):
+            #print(i, ds, self.fits_dict[ds].size())
             params = self.fits_dict[ds][i]
             pose[n, :] = params[:72]
             betas[n, :] = params[72:]
+        
         pose = pose.clone()
         # Apply flipping and rotation
+        #print(is_flipped)
         pose = self.flip_pose(self.rotate_pose(pose, rot), is_flipped)
         betas = betas.clone()
+        
         return pose, betas
 
     def __setitem__(self, x, val):
@@ -61,8 +66,9 @@ class FitsDict():
 
     def flip_pose(self, pose, is_flipped):
         """flip SMPL pose parameters"""
-        is_flipped = is_flipped.byte()
+        #is_flipped = is_flipped.byte()
         pose_f = pose.clone()
+        #print(is_flipped)
         pose_f[is_flipped, :] = pose[is_flipped][:, self.flipped_parts]
         # we also negate the second and the third dimension of the axis-angle representation
         pose_f[is_flipped, 1::3] *= -1

@@ -21,6 +21,7 @@ class BaseTrainer(object):
         self.init_fn()
         self.saver = CheckpointSaver(save_dir=options.checkpoint_dir)
         self.summary_writer = SummaryWriter(self.options.summary_dir)
+        
 
         self.checkpoint = None
         if self.options.resume and self.saver.exists_checkpoint():
@@ -54,7 +55,7 @@ class BaseTrainer(object):
                                                      num_workers=self.options.num_workers,
                                                      pin_memory=self.options.pin_memory,
                                                      shuffle=self.options.shuffle_train)
-
+            print(len(self.train_ds))
             # Iterate over all batches in an epoch
             for step, batch in enumerate(tqdm(train_data_loader, desc='Epoch '+str(epoch),
                                               total=len(self.train_ds) // self.options.batch_size,
@@ -65,8 +66,10 @@ class BaseTrainer(object):
                     out = self.train_step(batch)
                     self.step_count += 1
                     # Tensorboard logging every summary_steps steps
+                    #print(self.step_count, self.options.summary_steps)
                     if self.step_count % self.options.summary_steps == 0:
                         self.train_summaries(batch, *out)
+                        
                     # Save checkpoint every checkpoint_steps steps
                     if self.step_count % self.options.checkpoint_steps == 0:
                         self.saver.save_checkpoint(self.models_dict, self.optimizers_dict, epoch, step+1, self.options.batch_size, train_data_loader.sampler.dataset_perm, self.step_count)
@@ -91,15 +94,3 @@ class BaseTrainer(object):
                 self.saver.save_checkpoint(self.models_dict, self.optimizers_dict, epoch+1, 0, self.options.batch_size, None, self.step_count)
         return
 
-    # The following methods (with the possible exception of test) have to be implemented in the derived classes
-    def init_fn(self):
-        raise NotImplementedError('You need to provide an _init_fn method')
-
-    def train_step(self, input_batch):
-        raise NotImplementedError('You need to provide a _train_step method')
-
-    def train_summaries(self, input_batch):
-        raise NotImplementedError('You need to provide a _train_summaries method')
-
-    def test(self):
-        pass

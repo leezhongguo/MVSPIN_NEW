@@ -27,7 +27,7 @@ class BaseDataset(Dataset):
         self.normalize_img = Normalize(mean=constants.IMG_NORM_MEAN, std=constants.IMG_NORM_STD)
         self.data = np.load(config.DATASET_FILES[is_train][dataset])
         self.imgname = self.data['imgname']
-        
+
         # Bounding boxes are assumed to be in the center and scale format
         self.scale = self.data['scale']
         self.center = self.data['center']
@@ -35,10 +35,31 @@ class BaseDataset(Dataset):
         # If False, do not do augmentation
         self.use_augmentation = use_augmentation
         
-        # We do not use the gt SMPL parameter
+        # Get gt SMPL parameters, if available
+        #try:
+        #    self.pose = self.data['pose'].astype(np.float)
+        #    self.betas = self.data['shape'].astype(np.float)
+        #    if 'has_smpl' in self.data:
+        #        self.has_smpl = self.data['has_smpl']
+        #    else:
+        #        self.has_smpl = np.ones(len(self.imgname))
+        #except KeyError:
+        #    self.has_smpl = np.zeros(len(self.imgname))
         self.has_smpl = np.zeros(len(self.imgname))
+        
+        # Get gt 3D pose, if available
         self.pose_3d = self.data['S']
-        self.has_pose_3d = 1        
+        self.has_pose_3d = 1
+        #
+        #ry:
+        #    self.pose_3d = self.data['S']
+        #    self.has_pose_3d = 1
+        #except KeyError:
+        #    self.has_pose_3d = 0
+        # you can choose if trainning the network with 3d pose
+        if ignore_3d:
+            self.has_pose_3d = 0
+        
         # Get 2D keypoints
         try:
             keypoints_gt = self.data['part']
@@ -47,11 +68,18 @@ class BaseDataset(Dataset):
         try:
             keypoints_openpose = self.data['openpose']
         except KeyError:
-            keypoints_openpose = np.zeros((len(self.imgname), 25, 3))
-        self.keypoints = np.concatenate([keypoints_openpose, keypoints_gt], axis=1)
+            keypoints_openpose = np.zeros((len(self.imgname), 4, 25, 3)) # for training we have 4 views
+            #keypoints_openpose = np.zeros((len(self.imgname), 25, 3)) # for testing we don't use 4 views
+        #print(keypoints_openpose.shape,keypoints_gt.shape)
+        self.keypoints = np.concatenate([keypoints_openpose, keypoints_gt], axis=2 ) # for training we have 4 views
 
-        # we ignore the gender data
-        self.gender = -1*np.ones(len(self.imgname)).astype(np.int32)
+        # Get gender data, if available
+        try:
+            gender = self.data['gender']
+            self.gender = np.array([0 if str(g) == 'm' else 1 for g in gender]).astype(np.int32)
+        except KeyError:
+            self.gender = -1*np.ones(len(self.imgname)).astype(np.int32)
+        
         self.length = self.scale.shape[0]
 
     def augm_params(self):
@@ -142,20 +170,34 @@ class BaseDataset(Dataset):
         item = {}
         scale = self.scale[index].copy()
         center = self.center[index].copy()
-
         # Get augmentation parameters
         flip, pn, rot, sc = self.augm_params()
-        
         # Load image
-        #imgname = join(self.img_dir, self.imgname[index][7:]) #h36m
-        imgname = join(self.img_dir, self.imgname[index]) # mpi-inf-3dhp 3dpw
-        #print(imgname)
-        try:
-            img = cv2.imread(imgname)[:,:,::-1].copy().astype(np.float32)
-        except TypeError:
-            print(imgname)
-        orig_shape = np.array(img.shape)[:2]
-
+        view_number = 4 # here we use four-view images
+        for i in range(view_number): # four views
+            if type(self.imgname[index][i]).__name__!="str_":
+                imgname = join(self.img_dir,  str(self.imgname[index][i],encoding='utf-8'))
+            else:
+                imgname = join(self.img_dir,self.imgname[index][i])
+            try:
+                img = cv2.imread(imgname)[:,:,::-1].copy().astype(np.float32)
+            except KeyError:
+                print(imgname)
+            item['orig_shape_%d' % i] = np.array(img.shape)[:2] # HxW
+            img = self.rgb_processing(img, center[i], sc*scale[i], rot, flip, pn)
+            img = torch.from_numpy(img).float()
+            item['img_%d' % i] = self.normalize_img(img)
+            item['imgname_%d' % i] = imgname
+        # Get 3D pose of different view
+        S = self.pose_3d[index].copy()
+        for i in range(4): # four views
+            item['pose_3d_%d' % i] = torch.from_numpy(self.j3d_processing(S[i],rot,flip)).float()
+        # Get 2D pose
+        keypoints = self.keypoints[index].copy()
+        for i in range(view_number):
+            item['keypoints_%d' % i] = torch.from_numpy(self.j2d_processing(keypoints[i],center[i], sc*scale[i], rot, flip)).float()      
+            item['scale_%d' % i] = float(scale[i])
+            item['center_%d' % i] = center[i].astype(np.float32)
         # Get SMPL parameters, if available
         if self.has_smpl[index]:
             pose = self.pose[index].copy()
@@ -163,39 +205,15 @@ class BaseDataset(Dataset):
         else:
             pose = np.zeros(72)
             betas = np.zeros(10)
-
-        # Process image
-        img = self.rgb_processing(img, center, sc*scale, rot, flip, pn)
-        img = torch.from_numpy(img).float()
-        # Store image before normalization to use it in visualization
-        item['img'] = self.normalize_img(img)
+        item['has_pose_3d'] = self.has_pose_3d
+        item['has_smpl'] = self.has_smpl[index]
         item['pose'] = torch.from_numpy(self.pose_processing(pose, rot, flip)).float()
         item['betas'] = torch.from_numpy(betas).float()
-        item['imgname'] = imgname
-
-        # Get 3D pose, if available
-        if self.has_pose_3d:
-            S = self.pose_3d[index].copy()
-            item['pose_3d'] = torch.from_numpy(self.j3d_processing(S, rot, flip)).float()
-        else:
-            item['pose_3d'] = torch.zeros(24,4, dtype=torch.float32)
-
-        # Get 2D keypoints and apply augmentation transforms
-        keypoints = self.keypoints[index].copy()
-        item['keypoints'] = torch.from_numpy(self.j2d_processing(keypoints, center, sc*scale, rot, flip)).float()
-
-        item['has_smpl'] = self.has_smpl[index]
-        item['has_pose_3d'] = self.has_pose_3d
-        item['scale'] = float(sc * scale)
-        item['center'] = center.astype(np.float32)
-        item['orig_shape'] = orig_shape
         item['is_flipped'] = flip
         item['rot_angle'] = np.float32(rot)
-        item['gender'] = self.gender[index]
         item['sample_index'] = index
         item['dataset_name'] = self.dataset
-
-        return item
+        return item 
 
     def __len__(self):
         return len(self.imgname)

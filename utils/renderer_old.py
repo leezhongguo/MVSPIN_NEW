@@ -28,15 +28,14 @@ class Renderer:
             images = input_batch['img_%d' % i]
             images = images * torch.tensor([0.229, 0.224, 0.225], device=images.device).reshape(1,3,1,1)
             images = images + torch.tensor([0.485, 0.456, 0.406], device=images.device).reshape(1,3,1,1)
-            vertices = vertices_mv[i*batch_size:(i+1)*batch_size].detach().cpu().numpy()
-            camera_translation = camera_translation_mv[i*batch_size:(i+1)*batch_size].detach().cpu().numpy()
-            
+            vertices = vertices_mv[i].detach().cpu().numpy()
+            camera_translation = camera_translation_mv[i].detach().cpu().numpy()
             #camera_rotation = camera_rotation_mv[i].detach().cpu().numpy()
             #print(camera_rotation.shape)
             #input()
             images = images.cpu()
             images_np = np.transpose(images.numpy(), (0,2,3,1))
-            for j in range(batch_size):
+            for j in range(vertices.shape[0]):
                 rend_img = torch.from_numpy(np.transpose(self.__call__(vertices[j], camera_translation[j], images_np[j]), (2,0,1))).float()
                 #np.save('rend_img.npy',rend_img)
                 #np.save('image.npy',images[i])
