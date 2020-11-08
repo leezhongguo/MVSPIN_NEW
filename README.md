@@ -3,6 +3,10 @@ This repo is for the paper:
 **3D Human Pose and Shape Estimation Through Collaborative Learning and Multi-view Model-fitting**,
 Zhongguo Li, Magnus Oskarsson, and Anders Heyden.
 
+<p float="center">
+  <img src="downtown_upstairs_00.gif" width="98%" />
+</p>
+
 # Installation and Fetch data
 This repo is modified based on the method called [SPIN](https://github.com/nkolot/SPIN). If you want to run the code, you need to install depandencies and download the necessary data according to the installation instruction from the repo. 
 
