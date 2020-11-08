@@ -3,7 +3,6 @@ import numpy as np
 import cv2
 import argparse
 import pickle as pkl
-import json
 
 # model modules
 import torch
@@ -22,15 +21,16 @@ parser.add_argument('--bbox',type=str, default=None,help='Path to .json containi
 parser.add_argument('--output', type=str, default=None, help='Path to output')
 
 
-def bbox_from_json(bbox_file):
+def bbox_from_pkl(bbox_file):
     """Get center and scale of bounding box from bounding box annotations.
-    The expected format is [top_left(x), top_left(y), width, height].
+    The expected format is [top_left(x), top_left(y), bottom_right(x), bottom_right(y), ratio].
     """
-    with open(bbox_file, 'r') as f:
-        bbox = np.array(json.load(f)['bbox']).astype(np.float32)
+    with open(bbox_file, 'rb') as fp:
+        bbox = pkl.load(fp)
     ul_corner = bbox[:2]
-    center = ul_corner + 0.5 * bbox[2:]
-    width = max(bbox[2], bbox[3])
+    br_corner = bbox[2:4]
+    center =  0.5 * (ul_corner+br_corner)
+    width = max(bbox[2]-bbox[0], bbox[3]-bbox[1])
     scale = width / 200.0
     # make sure the bounding box is rectangular
     return center, scale
@@ -44,7 +44,7 @@ def process_image(img_file, bbox_file, input_res=224):
         center = np.array([width // 2, height // 2])
         scale = max(height, width) / 200
     else:
-        center, scale = bbox_from_json(bbox_file)
+        center, scale = bbox_from_pkl(bbox_file)
     img = crop(img, center, scale, (input_res, input_res))
     img = img.astype(np.float32) / 255.
     img = torch.from_numpy(img).permute(2,0,1)
