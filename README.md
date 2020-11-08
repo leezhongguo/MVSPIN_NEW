@@ -11,15 +11,15 @@ Zhongguo Li, Magnus Oskarsson, and Anders Heyden.
 This repo is modified based on the method called [SPIN](https://github.com/nkolot/SPIN). If you want to run the code, you need to install depandencies and download the necessary data according to the installation instruction from the repo. 
 
 # Demo
-We provide a demo code for demonstrate the performance of our method. You can download the pre-trained model [here].The person in the image should be in the center and cropped tightly. If you can provide the bounding box as the example in a json file, our demo still works. 
+We provide a demo code for demonstrate the performance of our method. You can download the pre-trained model [here]. The person in the image should be in the center and cropped tightly. If you can provide the bounding box as the example in a pkl file, our demo still works. The bounding box is detected by CornerNet in our example.
 Therefore, we provide two ways to run the demo.
 1. Only test image in which the person is in the center and cropped tightly.
 ```
-python demo_mvspin --trained_model=data/pre_trained.pt --test_image=examples/im1010.jpg
+python demo_mvspin --trained_model=data/pre_trained.pt --test_image=examples/test.png
 ```
 2. Test image with its correponding bounding box.
 ```
-python demo_mvspin --trained_model=data/pre_trained.pt --test_image=examples/im1010.jpg --bbox=examples/im1010_bbox.json
+python demo_mvspin --trained_model=data/pre_trained.pt --test_image=examples/test.png --bbox=examples/test_bboxes.pkl
 ```
 # Train
 You can also train the network. Firstly, you need to download the training dataset [Human3.6M](http://vision.imar.ro/human3.6m/description.php) and [MPI-INF-3DHP](http://gvv.mpi-inf.mpg.de/3dhp-dataset/). 
